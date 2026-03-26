@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stonesaga – Foraging</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ===== START SCREEN ===== -->
+  <section id="screen-start" class="screen">
+    <header>
+      <h1>Stonesaga</h1>
+      <h2>Foraging Deck</h2>
+    </header>
+
+    <div id="resume-banner" class="resume-banner hidden">
+      <p>You have an active <strong id="resume-terrain-label"></strong> session.</p>
+      <div class="resume-actions">
+        <button id="btn-resume" class="btn btn-primary">Resume Session</button>
+        <button id="btn-discard" class="btn btn-danger">Start New</button>
+      </div>
+    </div>
+
+    <div id="new-session-panel">
+      <h3>Choose Terrain</h3>
+      <div id="terrain-picker" class="terrain-picker">
+        <button class="btn btn-terrain" data-terrain="forest">Forest</button>
+        <button class="btn btn-terrain" data-terrain="prairie">Prairie</button>
+        <button class="btn btn-terrain" id="btn-terrain-glade" data-terrain="glade">Glade</button>
+      </div>
+      <button id="btn-begin" class="btn btn-primary" disabled>Begin Foraging</button>
+    </div>
+
+    <footer>
+      <button id="btn-settings" class="btn btn-ghost">&#9881; Settings</button>
+    </footer>
+  </section>
+
+  <!-- ===== FORAGING SCREEN ===== -->
+  <section id="screen-foraging" class="screen hidden">
+    <header>
+      <h2 id="foraging-terrain-label">Foraging</h2>
+      <div class="deck-info">Cards remaining: <strong id="deck-count">0</strong></div>
+    </header>
+
+    <div id="draw-zone" class="draw-zone"></div>
+
+    <div id="played-section" class="played-section">
+      <h3>Played Cards</h3>
+      <div id="played-list" class="played-list"></div>
+    </div>
+
+    <footer>
+      <button id="btn-stop" class="btn btn-danger">Stop Foraging</button>
+    </footer>
+  </section>
+
+  <!-- ===== SETTINGS SCREEN ===== -->
+  <section id="screen-settings" class="screen hidden">
+    <header>
+      <h2>Settings</h2>
+    </header>
+
+    <div class="settings-group">
+      <h3>Expansions</h3>
+
+      <label class="toggle-row">
+        <span class="toggle-label">
+          <strong>Meals &amp; Myths</strong>
+          <small>Does not add Foraging cards</small>
+        </span>
+        <input type="checkbox" id="toggle-meals-myths">
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+      </label>
+
+      <label class="toggle-row">
+        <span class="toggle-label">
+          <strong>Nature of the Beast</strong>
+          <small>Adds FF15, FP15, and the Glade terrain (FT01–FT12)</small>
+        </span>
+        <input type="checkbox" id="toggle-nature-beast">
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+      </label>
+    </div>
+
+    <footer>
+      <button id="btn-settings-back" class="btn btn-ghost">&#8592; Back</button>
+    </footer>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
