@@ -1,10 +1,24 @@
 # Stonesaga
 
-Stonesaga is a parent repository for game and web prototypes. The current playable web project is **Foraging**.
+This repository contains fan-made web tooling and prototypes inspired by the Stonesaga board game universe.
+
+## About Stonesaga (Board Game)
+
+Stonesaga is an Open Owl Studios tabletop title presented on the studio site as a cooperative cozy gaming experience.
+
+Official Stonesaga page (Open Owl Studios):
+
+- [Open Owl Studios - Stonesaga](https://openowlstudios.com/pages/stonesaga-1)
+
+Open Owl Studios is the copyright holder for Stonesaga and related official game content.
+
+## About This Repository
+
+This codebase is an unofficial companion project. The current playable web project is **Foraging**.
 
 ## Live Site
 
-- GitHub Pages: https://the-greggs.github.io/Stonesaga/
+- [GitHub Pages - Stonesaga Foraging](https://the-greggs.github.io/Stonesaga/)
 
 ## Repository Structure
 
