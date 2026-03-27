@@ -46,7 +46,7 @@ const TERRAINS = {
   }
 };
 
-const TERRAIN_ORDER = ['forest', 'prairie', 'glade', 'jungle'];
+const TERRAIN_ORDER = ['forest', 'prairie', 'jungle', 'glade'];
 
 const OPTIONAL_CARD_GROUPS = [
   {
