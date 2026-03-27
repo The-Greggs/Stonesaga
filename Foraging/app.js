@@ -4,27 +4,355 @@
 
 const STORAGE_KEY = 'stonesaga-foraging';
 
-const TERRAIN_PREFIXES = { forest: 'FF', prairie: 'FP', glade: 'FT' };
-const TERRAIN_LABELS   = { forest: 'Forest', prairie: 'Prairie', glade: 'Glade' };
-const TERRAIN_ICONS    = { forest: '🌲', prairie: '🌾', glade: '🍃' };
+const ZONE_LABELS = {
+  foreground: 'Foreground',
+  midground: 'Midground',
+  background: 'Background'
+};
+
+const ZONE_ORDER = {
+  foreground: 1,
+  midground: 2,
+  background: 3
+};
+
+const CARD_ZONE_LAYOUT = ['background', 'midground', 'foreground'];
+
+const TERRAINS = {
+  forest: {
+    label: 'Forest',
+    icon: '🌲',
+    themeClass: 'terrain-forest',
+    baseCards: createCardRange('FF', 1, 12)
+  },
+  prairie: {
+    label: 'Prairie',
+    icon: '🌾',
+    themeClass: 'terrain-prairie',
+    baseCards: createCardRange('FP', 1, 12)
+  },
+  glade: {
+    label: 'Glade',
+    icon: '🍃',
+    themeClass: 'terrain-glade',
+    baseCards: createCardRange('FT', 1, 12),
+    availableWhen: settings => settings.expansions.natureOfTheBeast
+  },
+  jungle: {
+    label: 'Jungle',
+    icon: '🌴',
+    themeClass: 'terrain-jungle',
+    baseCards: createCardRange('FM', 1, 8)
+  }
+};
+
+const TERRAIN_ORDER = ['forest', 'prairie', 'glade', 'jungle'];
+
+const OPTIONAL_CARD_GROUPS = [
+  {
+    terrain: 'forest',
+    title: 'Forest Additions',
+    cards: [
+      { code: 'FF13', note: 'Base game discovered card' },
+      { code: 'FF14', note: 'Base game discovered card' },
+      { code: 'CF01', note: 'Base game discovered card' },
+      { code: 'CF02', note: 'Base game discovered card' },
+      { code: 'CF03', note: 'Base game discovered card' },
+      { code: 'CF04', note: 'Base game discovered card' },
+      { code: 'EF01', note: 'Meals & Myths discovered card', requiresExpansion: 'mealsAndMyths' },
+      { code: 'EF02', note: 'Meals & Myths discovered card', requiresExpansion: 'mealsAndMyths' },
+      { code: 'EF03', note: 'Meals & Myths discovered card', requiresExpansion: 'mealsAndMyths' }
+    ]
+  },
+  {
+    terrain: 'prairie',
+    title: 'Prairie Additions',
+    cards: [
+      { code: 'FP13', note: 'Base game discovered card' },
+      { code: 'FP14', note: 'Base game discovered card' },
+      { code: 'CP01', note: 'Base game discovered card' },
+      { code: 'CP02', note: 'Base game discovered card' },
+      { code: 'CP03', note: 'Base game discovered card' },
+      { code: 'CP04', note: 'Base game discovered card' },
+      { code: 'EP01', note: 'Meals & Myths discovered card', requiresExpansion: 'mealsAndMyths' },
+      { code: 'EP02', note: 'Meals & Myths discovered card', requiresExpansion: 'mealsAndMyths' },
+      { code: 'EP03', note: 'Meals & Myths discovered card', requiresExpansion: 'mealsAndMyths' }
+    ]
+  },
+  {
+    terrain: 'glade',
+    title: 'Glade Additions',
+    cards: [
+      { code: 'FT13', note: 'Nature of the Beast discovered card', requiresExpansion: 'natureOfTheBeast' },
+      { code: 'FT14', note: 'Nature of the Beast discovered card', requiresExpansion: 'natureOfTheBeast' },
+      { code: 'CT01', note: 'Nature of the Beast discovered card', requiresExpansion: 'natureOfTheBeast' },
+      { code: 'CT02', note: 'Nature of the Beast discovered card', requiresExpansion: 'natureOfTheBeast' },
+      { code: 'CT03', note: 'Nature of the Beast discovered card', requiresExpansion: 'natureOfTheBeast' },
+      { code: 'CT04', note: 'Nature of the Beast discovered card', requiresExpansion: 'natureOfTheBeast' },
+      { code: 'EG01', note: 'Meals & Myths discovered card', requiresExpansion: 'mealsAndMyths' },
+      { code: 'EG02', note: 'Meals & Myths discovered card', requiresExpansion: 'mealsAndMyths' },
+      { code: 'EG03', note: 'Meals & Myths discovered card', requiresExpansion: 'mealsAndMyths' }
+    ]
+  }
+];
+
+const OPTIONAL_CARD_LOOKUP = buildOptionalCardLookup(OPTIONAL_CARD_GROUPS);
+
+const CARD_ZONE_DATA = {
+  forest: {
+    background: ['FF05', 'FF07', 'FF08', 'CF03', 'EF01', 'EF02'],
+    midground: ['FF09', 'FF10', 'FF11', 'CF02', 'EF03'],
+    foreground: ['FF12', 'CF04']
+  },
+  prairie: {
+    background: ['FP04', 'FP06', 'FP07', 'FP08', 'FP09', 'CP03', 'EP01', 'EP02'],
+    midground: ['FP05', 'FP10', 'FP11', 'CP02'],
+    foreground: ['FP12', 'CP04']
+  },
+  jungle: {
+    background: ['FM02', 'FM06'],
+    midground: ['FM01', 'FM07'],
+    foreground: ['FM08']
+  },
+  glade: {
+    background: ['FT04', 'FT05', 'FT09', 'CT02', 'EG01', 'EG02', 'EG03'],
+    midground: ['FT01', 'FT06', 'FT08', 'FT10', 'CT03'],
+    foreground: ['FT12', 'CT04']
+  }
+};
+
+const CARD_ZONE_LOOKUP = buildCardZoneLookup(CARD_ZONE_DATA);
 
 // ===== STATE =====
 
-let state = {
-  settings: {
-    expansions: { mealsAndMyths: false, natureOfTheBeast: false }
-  },
-  session: {
+let state = createDefaultState();
+
+/** The currently highlighted terrain on the start screen (null = none selected). */
+let selectedTerrain = null;
+
+// ===== HELPERS =====
+
+function createCardRange(prefix, start, end) {
+  const cards = [];
+  for (let cardNumber = start; cardNumber <= end; cardNumber++) {
+    cards.push(prefix + String(cardNumber).padStart(2, '0'));
+  }
+  return cards;
+}
+
+function buildOptionalCardLookup(groups) {
+  const lookup = {};
+
+  groups.forEach(group => {
+    group.cards.forEach(card => {
+      lookup[card.code] = {
+        terrain: group.terrain,
+        title: group.title,
+        note: card.note,
+        requiresExpansion: card.requiresExpansion || null
+      };
+    });
+  });
+
+  return lookup;
+}
+
+function normalizeCardZoneEntry(entry, terrain, predatorZone) {
+  if (typeof entry === 'string') {
+    return {
+      code: entry,
+      terrain,
+      predatorZone,
+      resourcesByZone: null
+    };
+  }
+
+  return {
+    code: entry.code,
+    terrain,
+    predatorZone,
+    resourcesByZone: entry.resourcesByZone || null
+  };
+}
+
+function buildCardZoneLookup(zoneData) {
+  const lookup = {};
+
+  Object.entries(zoneData).forEach(([terrain, zones]) => {
+    Object.entries(zones).forEach(([predatorZone, entries]) => {
+      entries.forEach(entry => {
+        const normalized = normalizeCardZoneEntry(entry, terrain, predatorZone);
+        lookup[normalized.code] = normalized;
+      });
+    });
+  });
+
+  return lookup;
+}
+
+function createDefaultSettings() {
+  const cardToggles = {};
+
+  Object.keys(OPTIONAL_CARD_LOOKUP).forEach(code => {
+    cardToggles[code] = false;
+  });
+
+  return {
+    expansions: {
+      mealsAndMyths: false,
+      natureOfTheBeast: false
+    },
+    cardToggles
+  };
+}
+
+function createEmptySession() {
+  return {
     terrain: null,
     deck: [],
     played: [],
     currentDraw: null,
-    active: false
-  }
-};
+    active: false,
+    endReason: null
+  };
+}
 
-/** The currently highlighted terrain on the start screen (null = none selected). */
-let selectedTerrain = null;
+function createDefaultState() {
+  return {
+    settings: createDefaultSettings(),
+    session: createEmptySession()
+  };
+}
+
+function isTerrainAvailable(terrain, settings = state.settings) {
+  const terrainDef = TERRAINS[terrain];
+  if (!terrainDef) return false;
+  return !terrainDef.availableWhen || terrainDef.availableWhen(settings);
+}
+
+function getTerrainLabel(terrain) {
+  return TERRAINS[terrain] ? TERRAINS[terrain].label : '';
+}
+
+function getTerrainIcon(terrain) {
+  return TERRAINS[terrain] ? TERRAINS[terrain].icon : '🃏';
+}
+
+function getCardPredatorZone(code) {
+  const cardZone = CARD_ZONE_LOOKUP[code];
+  return cardZone ? cardZone.predatorZone : null;
+}
+
+function getCardZoneResources(code, zone) {
+  const cardZone = CARD_ZONE_LOOKUP[code];
+  if (!cardZone || !cardZone.resourcesByZone) return [];
+  return cardZone.resourcesByZone[zone] || [];
+}
+
+function hasForegroundPredator(cards) {
+  return cards.some(code => getCardPredatorZone(code) === 'foreground');
+}
+
+function getClosestPredatorDistance(cards) {
+  const predatorDistances = cards
+    .map(code => getCardPredatorZone(code))
+    .filter(Boolean)
+    .map(zone => ZONE_ORDER[zone]);
+
+  if (predatorDistances.length === 0) return null;
+  return Math.min(...predatorDistances);
+}
+
+function getBlockedReason(selectionState, index) {
+  if (selectionState.allowedIndices.has(index)) return '';
+  return selectionState.blockedReason || 'Blocked by predator rule.';
+}
+
+function getSelectionState(currentDraw, playedCards) {
+  const allowedIndices = new Set(currentDraw.map((_, index) => index));
+
+  if (currentDraw.length < 2) {
+    return { allowedIndices, message: '', blockedReason: '' };
+  }
+
+  const existingClosestPredator = getClosestPredatorDistance(playedCards);
+  if (existingClosestPredator === null) {
+    return { allowedIndices, message: '', blockedReason: '' };
+  }
+
+  const predatorIndices = currentDraw
+    .map((code, index) => ({ code, index, zone: getCardPredatorZone(code) }))
+    .filter(card => card.zone !== null);
+
+  if (predatorIndices.length === 0) {
+    return {
+      allowedIndices,
+      message: 'Predators are already in the tableau, but neither drawn card has one.',
+      blockedReason: ''
+    };
+  }
+
+  if (predatorIndices.length === 1) {
+    return {
+      allowedIndices: new Set([predatorIndices[0].index]),
+      message: 'A predator is already in the tableau, so you must take the drawn predator if able.',
+      blockedReason: 'You must choose the card with a predator.'
+    };
+  }
+
+  const closerPredators = predatorIndices.filter(card => ZONE_ORDER[card.zone] <= existingClosestPredator);
+  if (closerPredators.length > 0) {
+    return {
+      allowedIndices: new Set(closerPredators.map(card => card.index)),
+      message: 'Both drawn cards have predators. Choose one whose predator is at least as close as the closest predator already in the tableau.',
+      blockedReason: 'You must choose a predator that is at least as close as the closest predator already in the tableau.'
+    };
+  }
+
+  return {
+    allowedIndices: new Set(predatorIndices.map(card => card.index)),
+    message: 'Both drawn cards have predators. Neither is closer than the predators already in the tableau, so either predator card may be chosen.',
+    blockedReason: 'You must choose one of the predator cards.'
+  };
+}
+
+function enforcePredatorEndState() {
+  if (!state.session.active) return;
+  if (!hasForegroundPredator(state.session.played)) return;
+
+  state.session.active = false;
+  state.session.currentDraw = null;
+  state.session.endReason = 'predator';
+  saveState();
+}
+
+function getEndMessage() {
+  const playedCount = state.session.played.length;
+
+  if (state.session.endReason === 'predator') {
+    return 'A foreground predator is in the tableau. Searching ends and a Wildlife Encounter must be resolved.';
+  }
+
+  if (state.session.endReason === 'manual') {
+    return playedCount
+      ? 'Foraging stopped early.'
+      : 'Foraging stopped before any cards were played.';
+  }
+
+  if (state.session.endReason === 'deck') {
+    return 'The deck is exhausted.';
+  }
+
+  return playedCount
+    ? playedCount + ' card' + (playedCount !== 1 ? 's' : '') + ' played.'
+    : 'No cards were played.';
+}
+
+function isCardEnabledForSettings(code, settings = state.settings) {
+  const cardConfig = OPTIONAL_CARD_LOOKUP[code];
+  if (!cardConfig || !cardConfig.requiresExpansion) return true;
+  return !!settings.expansions[cardConfig.requiresExpansion];
+}
 
 // ===== PERSISTENCE =====
 
@@ -40,23 +368,30 @@ function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
+
     const saved = JSON.parse(raw);
+    const defaultSettings = createDefaultSettings();
 
     if (saved.settings) {
-      const exp = (saved.settings.expansions) || {};
-      state.settings.expansions.mealsAndMyths   = !!exp.mealsAndMyths;
-      state.settings.expansions.natureOfTheBeast = !!exp.natureOfTheBeast;
+      const savedExpansions = saved.settings.expansions || {};
+      state.settings.expansions.mealsAndMyths = !!savedExpansions.mealsAndMyths;
+      state.settings.expansions.natureOfTheBeast = !!savedExpansions.natureOfTheBeast;
+
+      const savedCardToggles = saved.settings.cardToggles || {};
+      Object.keys(defaultSettings.cardToggles).forEach(code => {
+        state.settings.cardToggles[code] = !!savedCardToggles[code];
+      });
     }
 
     if (saved.session) {
-      // Validate the saved session minimally before trusting it.
-      const s = saved.session;
+      const session = saved.session;
       state.session = {
-        terrain:     (typeof s.terrain === 'string' && s.terrain in TERRAIN_LABELS) ? s.terrain : null,
-        deck:        Array.isArray(s.deck)        ? s.deck        : [],
-        played:      Array.isArray(s.played)      ? s.played      : [],
-        currentDraw: Array.isArray(s.currentDraw) ? s.currentDraw : null,
-        active:      !!s.active
+        terrain: typeof session.terrain === 'string' && session.terrain in TERRAINS ? session.terrain : null,
+        deck: Array.isArray(session.deck) ? session.deck.filter(code => typeof code === 'string') : [],
+        played: Array.isArray(session.played) ? session.played.filter(code => typeof code === 'string') : [],
+        currentDraw: Array.isArray(session.currentDraw) ? session.currentDraw.filter(code => typeof code === 'string') : null,
+        active: !!session.active,
+        endReason: typeof session.endReason === 'string' ? session.endReason : null
       };
     }
   } catch (e) {
@@ -68,29 +403,25 @@ function loadState() {
 
 /**
  * Build an ordered array of card codes for the given terrain.
- * @param {'forest'|'prairie'|'glade'} terrain
- * @param {{ mealsAndMyths: boolean, natureOfTheBeast: boolean }} expansions
+ * @param {'forest'|'prairie'|'glade'|'jungle'} terrain
+ * @param {{ expansions: object, cardToggles: object }} settings
  * @returns {string[]}
  */
-function buildDeck(terrain, expansions) {
-  const prefix = TERRAIN_PREFIXES[terrain];
-  const cards = [];
+function buildDeck(terrain, settings) {
+  const terrainDef = TERRAINS[terrain];
+  if (!terrainDef) return [];
 
-  if (terrain === 'glade') {
-    // Glade is entirely from Nature of the Beast: FT01–FT12.
-    for (let i = 1; i <= 12; i++) {
-      cards.push(prefix + String(i).padStart(2, '0'));
-    }
-  } else {
-    // Forest / Prairie: base set 01–12.
-    for (let i = 1; i <= 12; i++) {
-      cards.push(prefix + String(i).padStart(2, '0'));
-    }
-    // Nature of the Beast adds card 15 (not 13 or 14).
-    if (expansions.natureOfTheBeast) {
-      cards.push(prefix + '15');
-    }
-  }
+  const cards = terrainDef.baseCards.slice();
+
+  OPTIONAL_CARD_GROUPS.forEach(group => {
+    if (group.terrain !== terrain) return;
+
+    group.cards.forEach(card => {
+      if (!settings.cardToggles[card.code]) return;
+      if (card.requiresExpansion && !settings.expansions[card.requiresExpansion]) return;
+      cards.push(card.code);
+    });
+  });
 
   return cards;
 }
@@ -126,60 +457,124 @@ function renderScreen(name) {
 }
 
 function applyTerrainTheme(terrain) {
-  document.body.classList.remove('terrain-forest', 'terrain-prairie', 'terrain-glade');
-  if (terrain && terrain in TERRAIN_LABELS) {
-    document.body.classList.add('terrain-' + terrain);
+  Object.values(TERRAINS).forEach(terrainDef => {
+    document.body.classList.remove(terrainDef.themeClass);
+  });
+
+  if (terrain && TERRAINS[terrain]) {
+    document.body.classList.add(TERRAINS[terrain].themeClass);
   }
 }
 
 // ===== START SCREEN =====
 
 function renderStartScreen() {
-  const nb = state.settings.expansions.natureOfTheBeast;
+  TERRAIN_ORDER.forEach(terrain => {
+    const btn = document.querySelector('.btn-terrain[data-terrain="' + terrain + '"]');
+    if (!btn) return;
+    btn.disabled = !isTerrainAvailable(terrain);
+  });
 
-  // Glade is only available with Nature of the Beast.
-  const gladeBtn = document.getElementById('btn-terrain-glade');
-  gladeBtn.disabled = !nb;
-
-  // If the user previously selected Glade but has since deactivated NatB, deselect.
-  if (!nb && selectedTerrain === 'glade') {
+  if (selectedTerrain && !isTerrainAvailable(selectedTerrain)) {
     selectedTerrain = null;
   }
 
-  // Highlight the selected terrain button.
   document.querySelectorAll('.btn-terrain').forEach(btn => {
     btn.classList.toggle('selected', btn.dataset.terrain === selectedTerrain);
   });
 
-  // Enable Begin only when a terrain is chosen.
   document.getElementById('btn-begin').disabled = (selectedTerrain === null);
 
-  // Resume banner vs. new-session panel.
   const hasActive = state.session.active;
   document.getElementById('resume-banner').classList.toggle('hidden', !hasActive);
   document.getElementById('new-session-panel').classList.toggle('hidden', hasActive);
 
   if (hasActive && state.session.terrain) {
-    const t = state.session.terrain;
+    const terrain = state.session.terrain;
     document.getElementById('resume-terrain-label').textContent =
-      TERRAIN_ICONS[t] + ' ' + TERRAIN_LABELS[t];
+      getTerrainIcon(terrain) + ' ' + getTerrainLabel(terrain);
   }
 
-  // Keep the settings toggles in sync.
-  document.getElementById('toggle-meals-myths').checked = state.settings.expansions.mealsAndMyths;
-  document.getElementById('toggle-nature-beast').checked = nb;
-
   applyTerrainTheme(selectedTerrain || null);
+}
+
+// ===== SETTINGS SCREEN =====
+
+function buildCardToggleRow(card) {
+  const label = document.createElement('label');
+  label.className = 'toggle-row';
+
+  const isEnabled = isCardEnabledForSettings(card.code);
+
+  const textWrap = document.createElement('span');
+  textWrap.className = 'toggle-label';
+
+  const strong = document.createElement('strong');
+  strong.textContent = card.code;
+  textWrap.appendChild(strong);
+
+  const small = document.createElement('small');
+  small.textContent = isEnabled
+    ? card.note
+    : card.note + ' (enable the required expansion first)';
+  textWrap.appendChild(small);
+
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.dataset.cardToggle = card.code;
+  input.checked = !!state.settings.cardToggles[card.code];
+  input.disabled = !isEnabled;
+
+  const track = document.createElement('span');
+  track.className = 'toggle-track';
+
+  const thumb = document.createElement('span');
+  thumb.className = 'toggle-thumb';
+  track.appendChild(thumb);
+
+  label.appendChild(textWrap);
+  label.appendChild(input);
+  label.appendChild(track);
+
+  return label;
+}
+
+function renderSettingsScreen() {
+  document.getElementById('toggle-meals-myths').checked = state.settings.expansions.mealsAndMyths;
+  document.getElementById('toggle-nature-beast').checked = state.settings.expansions.natureOfTheBeast;
+
+  const groupsHost = document.getElementById('card-toggle-groups');
+  groupsHost.innerHTML = '';
+
+  OPTIONAL_CARD_GROUPS.forEach(group => {
+    const section = document.createElement('section');
+    section.className = 'settings-subgroup';
+
+    const title = document.createElement('h4');
+    title.textContent = group.title;
+    section.appendChild(title);
+
+    const terrainNote = document.createElement('p');
+    terrainNote.className = 'settings-subgroup-note';
+    terrainNote.textContent = getTerrainLabel(group.terrain) + ' deck extras.';
+    section.appendChild(terrainNote);
+
+    group.cards.forEach(card => {
+      section.appendChild(buildCardToggleRow(card));
+    });
+
+    groupsHost.appendChild(section);
+  });
 }
 
 // ===== FORAGING SCREEN =====
 
 function renderForagingScreen() {
-  const sess = state.session;
+  enforcePredatorEndState();
 
-  const icon  = TERRAIN_ICONS[sess.terrain]  || '';
-  const label = TERRAIN_LABELS[sess.terrain] || '';
-  document.getElementById('foraging-terrain-label').textContent = icon + ' ' + label + ' Foraging';
+  const sess = state.session;
+  document.getElementById('foraging-terrain-label').textContent =
+    getTerrainIcon(sess.terrain) + ' ' + getTerrainLabel(sess.terrain) + ' Foraging';
   document.getElementById('deck-count').textContent = sess.deck.length;
 
   applyTerrainTheme(sess.terrain);
@@ -193,20 +588,23 @@ function renderDrawZone() {
   zone.innerHTML = '';
   zone.className = 'draw-zone';
 
-  // ── Session has ended ──────────────────────────────────────────────────────
   if (!sess.active) {
     const div = document.createElement('div');
     div.className = 'end-message';
 
     const heading = document.createElement('h3');
-    heading.textContent = 'Session Complete';
+    heading.textContent = sess.endReason === 'predator' ? 'Predator Encounter' : 'Session Complete';
     div.appendChild(heading);
 
     const info = document.createElement('p');
-    info.textContent = sess.played.length
+    info.textContent = getEndMessage();
+    div.appendChild(info);
+
+    const summary = document.createElement('p');
+    summary.textContent = sess.played.length
       ? sess.played.length + ' card' + (sess.played.length !== 1 ? 's' : '') + ' played.'
       : 'No cards were played.';
-    div.appendChild(info);
+    div.appendChild(summary);
 
     const backBtn = document.createElement('button');
     backBtn.className = 'btn btn-ghost';
@@ -215,15 +613,12 @@ function renderDrawZone() {
     div.appendChild(backBtn);
 
     zone.appendChild(div);
-
-    // Hide the Stop button — it's not relevant when the session is over.
     document.getElementById('btn-stop').classList.add('hidden');
     return;
   }
 
   document.getElementById('btn-stop').classList.remove('hidden');
 
-  // ── Cards are currently drawn; player must choose ──────────────────────────
   if (sess.currentDraw !== null) {
     const isSingle = sess.currentDraw.length === 1;
     if (isSingle) zone.classList.add('single-draw');
@@ -235,21 +630,33 @@ function renderDrawZone() {
       : 'Choose one card to play';
     zone.appendChild(drawLabel);
 
+    const selectionState = getSelectionState(sess.currentDraw, sess.played);
+    if (selectionState.message) {
+      const hint = document.createElement('p');
+      hint.className = 'draw-hint';
+      hint.textContent = selectionState.message;
+      zone.appendChild(hint);
+    }
+
     const cardsRow = document.createElement('div');
     cardsRow.className = 'draw-cards';
 
     sess.currentDraw.forEach((code, idx) => {
+      const isAllowed = isSingle || selectionState.allowedIndices.has(idx);
       const cardEl = buildCardElement(
         code,
         isSingle ? 'Play' : 'Select',
-        () => selectCard(idx)
+        isAllowed ? () => selectCard(idx) : null,
+        {
+          disabled: !isAllowed,
+          helperText: getBlockedReason(selectionState, idx)
+        }
       );
       cardsRow.appendChild(cardEl);
     });
 
     zone.appendChild(cardsRow);
 
-    // On a single-card draw the player may also choose to stop.
     if (isSingle) {
       const skipBtn = document.createElement('button');
       skipBtn.className = 'btn btn-ghost';
@@ -261,7 +668,6 @@ function renderDrawZone() {
     return;
   }
 
-  // ── Between draws; player can draw more or stop ────────────────────────────
   if (sess.deck.length > 0) {
     const wrap = document.createElement('div');
     wrap.className = 'draw-next-wrap';
@@ -285,23 +691,47 @@ function renderDrawZone() {
     return;
   }
 
-  // ── Deck is empty and no current draw — auto-end ───────────────────────────
   sess.active = false;
+  sess.endReason = 'deck';
   saveState();
   renderDrawZone();
 }
 
-function buildCardElement(code, buttonLabel, onSelect) {
+function buildCardElement(code, buttonLabel, onSelect, options = {}) {
+  const stack = document.createElement('div');
+  stack.className = 'card-stack';
+
   const card = document.createElement('div');
   card.className = 'card';
 
-  const art = document.createElement('div');
-  art.className = 'card-art';
+  if (options.disabled) {
+    card.classList.add('card-blocked');
+  }
 
-  const icon = document.createElement('div');
-  icon.className = 'card-art-icon';
-  icon.textContent = TERRAIN_ICONS[state.session.terrain] || '🃏';
-  art.appendChild(icon);
+  const predatorZone = getCardPredatorZone(code);
+  const zones = document.createElement('div');
+  zones.className = 'card-zones';
+
+  CARD_ZONE_LAYOUT.forEach(zone => {
+    const zoneEl = document.createElement('div');
+    zoneEl.className = 'card-zone card-zone-' + zone;
+
+    const zoneIcon = document.createElement('div');
+    zoneIcon.className = 'card-zone-icon';
+    zoneIcon.textContent = getTerrainIcon(state.session.terrain);
+    zoneEl.appendChild(zoneIcon);
+
+    if (predatorZone === zone) {
+      zoneEl.classList.add('card-zone-has-predator');
+
+      const marker = document.createElement('div');
+      marker.className = 'card-predator-marker';
+      marker.textContent = 'Predator: ' + ZONE_LABELS[zone];
+      zoneEl.appendChild(marker);
+    }
+
+    zones.appendChild(zoneEl);
+  });
 
   const codeEl = document.createElement('div');
   codeEl.className = 'card-code';
@@ -310,17 +740,28 @@ function buildCardElement(code, buttonLabel, onSelect) {
   const btn = document.createElement('button');
   btn.className = 'card-select-btn';
   btn.textContent = buttonLabel;
-  btn.addEventListener('click', onSelect);
+  btn.disabled = !!options.disabled;
+  if (onSelect) {
+    btn.addEventListener('click', onSelect);
+  }
 
-  card.appendChild(art);
+  card.appendChild(zones);
   card.appendChild(codeEl);
   card.appendChild(btn);
-  return card;
+
+  stack.appendChild(card);
+
+  const helper = document.createElement('div');
+  helper.className = 'card-helper-text';
+  helper.textContent = options.helperText || '';
+  stack.appendChild(helper);
+
+  return stack;
 }
 
 function renderPlayedList() {
   const played = state.session.played;
-  const list   = document.getElementById('played-list');
+  const list = document.getElementById('played-list');
   list.innerHTML = '';
 
   if (played.length === 0) {
@@ -332,8 +773,11 @@ function renderPlayedList() {
 
   played.forEach(code => {
     const badge = document.createElement('span');
-    badge.className = 'played-badge';
-    badge.textContent = code;
+    const predatorZone = getCardPredatorZone(code);
+    badge.className = 'played-badge' + (predatorZone ? ' played-badge-predator' : '');
+    badge.textContent = predatorZone
+      ? code + ' • predator: ' + ZONE_LABELS[predatorZone].toLowerCase()
+      : code;
     list.appendChild(badge);
   });
 }
@@ -348,8 +792,15 @@ function drawCards() {
   const sess = state.session;
   if (!sess.active || sess.deck.length === 0) return;
 
+  if (hasForegroundPredator(sess.played)) {
+    sess.active = false;
+    sess.currentDraw = null;
+    sess.endReason = 'predator';
+    saveState();
+    return;
+  }
+
   if (sess.deck.length >= 2) {
-    // Pop from the end of the array (it's pre-shuffled).
     sess.currentDraw = [sess.deck.pop(), sess.deck.pop()];
   } else {
     sess.currentDraw = [sess.deck.pop()];
@@ -366,6 +817,11 @@ function selectCard(chosenIdx) {
   const sess = state.session;
   if (!sess.currentDraw) return;
 
+  const selectionState = getSelectionState(sess.currentDraw, sess.played);
+  if (sess.currentDraw.length > 1 && !selectionState.allowedIndices.has(chosenIdx)) {
+    return;
+  }
+
   const chosen = sess.currentDraw[chosenIdx];
 
   if (sess.currentDraw.length === 2) {
@@ -376,8 +832,14 @@ function selectCard(chosenIdx) {
   sess.played.push(chosen);
   sess.currentDraw = null;
 
-  if (sess.deck.length === 0) {
+  if (getCardPredatorZone(chosen) === 'foreground') {
     sess.active = false;
+    sess.endReason = 'predator';
+  } else if (sess.deck.length === 0) {
+    sess.active = false;
+    sess.endReason = 'deck';
+  } else {
+    sess.endReason = null;
   }
 
   saveState();
@@ -387,12 +849,15 @@ function selectCard(chosenIdx) {
 function endSession() {
   state.session.active = false;
   state.session.currentDraw = null;
+  state.session.endReason = 'manual';
   saveState();
   renderForagingScreen();
 }
 
 function startNewSession(terrain) {
-  const deck = buildDeck(terrain, state.settings.expansions);
+  if (!isTerrainAvailable(terrain)) return;
+
+  const deck = buildDeck(terrain, state.settings);
   shuffle(deck);
 
   state.session = {
@@ -400,10 +865,10 @@ function startNewSession(terrain) {
     deck,
     played: [],
     currentDraw: null,
-    active: true
+    active: true,
+    endReason: null
   };
 
-  // Auto-draw the first pair before showing the screen.
   drawCards();
 
   applyTerrainTheme(terrain);
@@ -412,7 +877,7 @@ function startNewSession(terrain) {
 }
 
 function clearSessionAndGoHome() {
-  state.session = { terrain: null, deck: [], played: [], currentDraw: null, active: false };
+  state.session = createEmptySession();
   selectedTerrain = null;
   saveState();
   applyTerrainTheme(null);
@@ -424,8 +889,7 @@ function clearSessionAndGoHome() {
 
 function init() {
   loadState();
-
-  // ── Start screen ──────────────────────────────────────────────────────────
+  enforcePredatorEndState();
 
   document.querySelectorAll('.btn-terrain').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -441,6 +905,7 @@ function init() {
   });
 
   document.getElementById('btn-settings').addEventListener('click', () => {
+    renderSettingsScreen();
     renderScreen('settings');
   });
 
@@ -452,25 +917,30 @@ function init() {
   });
 
   document.getElementById('btn-discard').addEventListener('click', clearSessionAndGoHome);
-
-  // ── Foraging screen ───────────────────────────────────────────────────────
-
   document.getElementById('btn-stop').addEventListener('click', endSession);
-
-  // ── Settings screen ───────────────────────────────────────────────────────
 
   document.getElementById('toggle-meals-myths').addEventListener('change', e => {
     state.settings.expansions.mealsAndMyths = e.target.checked;
     saveState();
+    renderSettingsScreen();
   });
 
   document.getElementById('toggle-nature-beast').addEventListener('change', e => {
     state.settings.expansions.natureOfTheBeast = e.target.checked;
-    saveState();
-    // If Glade was selected and NatB just turned off, clear the selection.
     if (!e.target.checked && selectedTerrain === 'glade') {
       selectedTerrain = null;
     }
+    saveState();
+    renderSettingsScreen();
+    renderStartScreen();
+  });
+
+  document.getElementById('card-toggle-groups').addEventListener('change', e => {
+    if (!e.target.matches('[data-card-toggle]')) return;
+    const code = e.target.dataset.cardToggle;
+    if (!(code in state.settings.cardToggles)) return;
+    state.settings.cardToggles[code] = e.target.checked;
+    saveState();
   });
 
   document.getElementById('btn-settings-back').addEventListener('click', () => {
@@ -478,10 +948,9 @@ function init() {
     renderScreen('start');
   });
 
-  // ── Boot ──────────────────────────────────────────────────────────────────
-
   applyTerrainTheme(null);
   renderStartScreen();
+  renderSettingsScreen();
   renderScreen('start');
 }
 

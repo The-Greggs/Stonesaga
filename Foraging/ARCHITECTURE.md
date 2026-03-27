@@ -27,14 +27,60 @@ The app models this tabletop flow:
 ### Terrain Decks
 - Forest base: FF01-FF12
 - Prairie base: FP01-FP12
-- Glade base: not available unless Nature of the Beast is enabled
+- Jungle base: FM01-FM08
+- Glade base: FT01-FT12 and not available unless Nature of the Beast is enabled
 
 ### Expansion Effects
-- Meals & Myths: currently no Foraging card changes
+- Base discovered cards can be enabled individually in Settings for new sessions:
+  - Forest: FF13, FF14, CF01-CF04
+  - Prairie: FP13, FP14, CP01-CP04
 - Nature of the Beast:
-  - Adds FF15 to Forest
-  - Adds FP15 to Prairie
   - Enables Glade terrain deck FT01-FT12
+  - Allows Glade discovered cards FT13, FT14, CT01-CT04
+- Nature of the Beast:
+  - Does not alter active sessions when toggled during play
+- Meals & Myths:
+  - Allows discovered cards EF01-EF03, EP01-EP03, and EG01-EG03
+  - Does not alter active sessions when toggled during play
+
+### Predator Rules
+- Predator data is configured centrally in `app.js` as `CARD_ZONE_DATA`, grouped by terrain and zone
+- Supported predator zones are `foreground`, `midground`, and `background`
+- When predators already exist in the tableau:
+  - If one drawn card has a predator and the other does not, the predator card must be chosen
+  - If both drawn cards have predators, only predators at least as close as the closest tableau predator are valid if such a choice exists
+  - If a foreground predator ever enters the tableau, searching ends immediately
+
+Data format (supports future metadata):
+
+```js
+const CARD_ZONE_DATA = {
+  forest: {
+    background: ['FF05', 'FF07'],
+    midground: ['FF09'],
+    foreground: ['FF12']
+  }
+};
+```
+
+Future-ready entry format for adding zone resources per card:
+
+```js
+const CARD_ZONE_DATA = {
+  forest: {
+    background: [
+      {
+        code: 'FF05',
+        resourcesByZone: {
+          background: ['berries'],
+          midground: ['mushrooms'],
+          foreground: []
+        }
+      }
+    ]
+  }
+};
+```
 
 ### Session Model
 A session uses one terrain deck at a time (not combined terrains).
@@ -65,14 +111,20 @@ State shape:
     "expansions": {
       "mealsAndMyths": false,
       "natureOfTheBeast": false
+    },
+    "cardToggles": {
+      "FF13": false,
+      "FF14": false,
+      "CF01": false
     }
   },
   "session": {
-    "terrain": "forest|prairie|glade|null",
+    "terrain": "forest|prairie|glade|jungle|null",
     "deck": [],
     "played": [],
     "currentDraw": null,
-    "active": false
+    "active": false,
+    "endReason": null
   }
 }
 ```
@@ -86,7 +138,7 @@ State shape:
 
 ### 3) Domain/Logic Layer
 Key logic responsibilities:
-- Build deck codes from terrain + expansion toggles
+- Build deck codes from terrain + expansion toggles + discovered-card toggles
 - Shuffle full deck (Fisher-Yates)
 - Reinsert discarded card at random position (shuffle-back behavior)
 - Draw management:
@@ -96,6 +148,8 @@ Key logic responsibilities:
   - add chosen to played log
   - return non-selected card (if pair draw)
   - transition to next step or end session
+- Enforce predator-based card choice restrictions
+- End the session when a foreground predator enters the tableau
 
 ### 4) UI/Render Layer
 Screen-based UI (SPA style) using show/hide sections:
@@ -134,6 +188,7 @@ DOM events wire user intent to logic:
 
 Special case:
 - Glade option is disabled unless Nature of the Beast is enabled
+- Jungle is available immediately
 
 ### Foraging Screen
 - Current terrain indicator and cards remaining
@@ -143,8 +198,10 @@ Special case:
 - Session complete summary when ended
 
 ### Settings Screen
-- Meals & Myths toggle (no current effect on foraging deck composition)
-- Nature of the Beast toggle (affects deck rules + Glade availability)
+- Meals & Myths toggle
+- Nature of the Beast toggle
+- Individual discovered-card toggles grouped by terrain
+- Changes apply only to newly started sessions
 
 ## Theming & Visual System
 - CSS custom properties control color tokens

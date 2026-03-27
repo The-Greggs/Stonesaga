@@ -40,6 +40,13 @@ body.terrain-glade {
   --terrain-card-border: #18708a;
   --terrain-badge-bg: #082830;
 }
+body.terrain-jungle {
+  --terrain-bg: #0f1a0e;
+  --terrain-accent: #7fcf5f;
+  --terrain-btn-hover: #5cab40;
+  --terrain-card-border: #4c7f39;
+  --terrain-badge-bg: #1a3115;
+}
 
 body {
   font-family: 'Segoe UI', system-ui, sans-serif;
@@ -192,43 +199,97 @@ h3 {
   text-align: center;
 }
 
+.draw-hint {
+  width: 100%;
+  max-width: 36rem;
+  text-align: center;
+  color: var(--clr-text-muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
 .draw-cards {
   display: flex;
   gap: 1rem;
   justify-content: center;
+  align-items: flex-start;
   flex-wrap: wrap;
   width: 100%;
 }
 
 /* Card */
+.card-stack {
+  width: 155px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+
 .card {
   background: var(--clr-card-bg);
   border: 2px solid var(--clr-card-border);
   border-radius: 0.75rem;
-  width: 155px;
+  width: 100%;
+  height: 390px;
   display: flex;
   flex-direction: column;
   align-items: center;
   overflow: hidden;
   transition: border-color 0.2s;
+  position: relative;
 }
 .draw-zone.single-draw .card {
   border-color: var(--terrain-accent);
 }
 
-.card-art {
+.card-blocked {
+  opacity: 0.72;
+}
+
+.card-zones {
   width: 100%;
-  aspect-ratio: 5 / 7;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-zone {
+  width: 100%;
+  flex: 1;
   background: linear-gradient(135deg, #161e36 0%, #0a1228 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid var(--clr-card-border);
+  position: relative;
 }
-.card-art-icon {
-  font-size: 3rem;
-  opacity: 0.25;
+
+.card-zone + .card-zone {
+  border-top: 1px solid rgba(58, 74, 122, 0.7);
+}
+
+.card-zone-icon {
+  font-size: 2.75rem;
+  opacity: 0.18;
+  -webkit-user-select: none;
   user-select: none;
+}
+
+.card-zone-has-predator {
+  box-shadow: inset 0 0 0 2px rgba(246, 217, 141, 0.25);
+}
+
+.card-predator-marker {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.5rem;
+  right: 0.5rem;
+  text-align: center;
+  color: #f6d98d;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .card-code {
@@ -238,6 +299,15 @@ h3 {
   letter-spacing: 0.07em;
   color: var(--terrain-accent);
   transition: color 0.3s;
+}
+
+.card-helper-text {
+  min-height: 2.6rem;
+  padding: 0 0.35rem;
+  color: var(--clr-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  text-align: center;
 }
 
 .card-select-btn {
@@ -255,6 +325,11 @@ h3 {
 .card-select-btn:hover {
   background: var(--terrain-btn-hover);
   color: #fff;
+}
+.card-select-btn:disabled {
+  background: #44475a;
+  color: #c7c8d4;
+  cursor: not-allowed;
 }
 
 /* Between-draws state */
@@ -312,12 +387,47 @@ h3 {
   transition: background 0.3s, border-color 0.3s, color 0.3s;
 }
 
+.played-badge-predator {
+  color: #f6d98d;
+  border-color: #b1892f;
+}
+
 /* ===== SETTINGS ===== */
+.settings-note {
+  color: var(--clr-text-muted);
+  text-align: center;
+  font-size: 0.92rem;
+}
+
 .settings-group {
   background: var(--clr-card-bg);
   border-radius: 0.75rem;
   padding: 1.25rem;
   border: 1px solid var(--clr-card-border);
+}
+
+.card-toggle-groups {
+  display: grid;
+  gap: 1rem;
+}
+
+.settings-subgroup {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.settings-subgroup h4 {
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+  color: var(--clr-text);
+}
+
+.settings-subgroup-note {
+  color: var(--clr-text-muted);
+  font-size: 0.8rem;
+  margin-bottom: 0.75rem;
 }
 
 .toggle-row {
@@ -383,6 +493,12 @@ footer {
 .hidden { display: none !important; }
 
 /* ===== RESPONSIVE ===== */
+@media (min-width: 720px) {
+  .card-toggle-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 400px) {
   h1 { font-size: 1.8rem; }
   .card { width: 132px; }
